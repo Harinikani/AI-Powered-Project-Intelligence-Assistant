@@ -5,15 +5,33 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UploadedFileRow } from "../components/uploaded-file-row";
-import { API_ENDPOINTS, fetchJson, getFileTypeFromName, getRelativeSize, mapDocumentFromApi, safeId } from "@/lib/api";
-import type { DocumentListApiItem, UploadApiResponse, UploadedFile } from "@/lib/types";
+import {
+  API_ENDPOINTS,
+  fetchJson,
+  getFileTypeFromName,
+  getRelativeSize,
+  mapDocumentFromApi,
+  safeId,
+  getDocumentChunks,
+} from "@/lib/api";
+import type {
+  DocumentChunkApiResponse,
+  DocumentListApiItem,
+  UploadApiResponse,
+  UploadedFile,
+} from "@/lib/types";
 import { DocumentChunksSheet } from "../components/document-chunks-sheet";
-import { getDocumentChunks } from "@/lib/api";
-import type { DocumentChunkApiResponse } from "@/lib/types";
 
 export default function UploadPage() {
   const [files, setFiles] = React.useState<UploadedFile[]>([]);
@@ -21,14 +39,17 @@ export default function UploadPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
   const [selectedFile, setSelectedFile] = React.useState<UploadedFile | null>(null);
-    const [chunkViewerOpen, setChunkViewerOpen] = React.useState(false);
-    const [chunksLoading, setChunksLoading] = React.useState(false);
-    const [chunkData, setChunkData] = React.useState<DocumentChunkApiResponse | null>(null);
+  const [chunkViewerOpen, setChunkViewerOpen] = React.useState(false);
+  const [chunksLoading, setChunksLoading] = React.useState(false);
+  const [chunkData, setChunkData] = React.useState<DocumentChunkApiResponse | null>(null);
 
   const filteredFiles = React.useMemo(() => {
     if (!searchValue.trim()) return files;
-    return files.filter((file) => file.name.toLowerCase().includes(searchValue.toLowerCase()));
+    return files.filter((file) =>
+      file.name.toLowerCase().includes(searchValue.toLowerCase())
+    );
   }, [files, searchValue]);
 
   const loadDocuments = React.useCallback(async () => {
@@ -37,7 +58,11 @@ export default function UploadPage() {
       const response = await fetchJson<
         DocumentListApiItem[] | { items?: DocumentListApiItem[]; documents?: DocumentListApiItem[] }
       >(API_ENDPOINTS.documents, { cache: "no-store" });
-      const items = Array.isArray(response) ? response : response.items ?? response.documents ?? [];
+
+      const items = Array.isArray(response)
+        ? response
+        : response.items ?? response.documents ?? [];
+
       setFiles(items.map(mapDocumentFromApi));
     } catch (error) {
       console.error("Failed to load documents", error);
@@ -54,72 +79,92 @@ export default function UploadPage() {
     setChunkData(null);
 
     try {
-        const response = await getDocumentChunks(file.name);
-        setChunkData(response);
+      const response = await getDocumentChunks(file.name);
+      setChunkData(response);
     } catch (error) {
-        console.error("Failed to load chunks", error);
-        setChunkData({
+      console.error("Failed to load chunks", error);
+      setChunkData({
         filename: file.name,
         total_chunks: 0,
         chunks: [],
-        });
+      });
     } finally {
-        setChunksLoading(false);
+      setChunksLoading(false);
     }
-    }, []);
+  }, []);
 
   React.useEffect(() => {
     void loadDocuments();
   }, [loadDocuments]);
 
-  const uploadDocuments = React.useCallback(async (incomingFiles: FileList | File[]) => {
-    const formData = new FormData();
-    const filesToUpload = Array.from(incomingFiles);
+  const uploadDocuments = React.useCallback(
+    async (incomingFiles: FileList | File[]) => {
+      const filesToUpload = Array.from(incomingFiles);
 
-    filesToUpload.forEach((file) => {
-      formData.append("files", file);
-    });
+      if (!filesToUpload.length) return;
 
-    const optimisticFiles: UploadedFile[] = filesToUpload.map((file) => ({
-      id: safeId(),
-      name: file.name,
-      type: getFileTypeFromName(file.name),
-      size: getRelativeSize(file.size),
-      status: "Uploaded",
-    }));
+      const optimisticFiles: UploadedFile[] = filesToUpload.map((file) => ({
+        id: safeId(),
+        name: file.name,
+        type: getFileTypeFromName(file.name),
+        size: getRelativeSize(file.size),
+        status: "Uploaded",
+      }));
 
-    setFiles((prev) => [...optimisticFiles, ...prev]);
+      setFiles((prev) => [...optimisticFiles, ...prev]);
 
-    try {
-      const response = await fetchJson<UploadApiResponse | UploadApiResponse[]>(API_ENDPOINTS.upload, {
-        method: "POST",
-        body: formData,
-      });
+      try {
+        const results: UploadApiResponse[] = [];
 
-      const result = Array.isArray(response) ? response : [response];
+        for (const file of filesToUpload) {
+          const formData = new FormData();
+          formData.append("file", file);
 
-      setFiles((prev) =>
-        prev.map((file) => {
-          const matched = result.find((item) => (item.filename ?? "") === file.name);
-          if (!matched) return file;
-          return {
-            ...file,
-            status: "Ready",
-            chunksAdded: matched.chunks_added ?? matched.chunksAdded,
-          };
-        })
-      );
+          const response = await fetch(API_ENDPOINTS.upload, {
+            method: "POST",
+            body: formData,
+          });
 
-      await loadDocuments();
-    } catch (error) {
-      console.error("Upload failed", error);
-      setFiles((prev) => prev.filter((file) => !optimisticFiles.some((optimistic) => optimistic.id === file.id)));
-    }
-  }, [loadDocuments]);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Upload failed for ${file.name}: ${response.status} ${errorText}`);
+          }
+
+          const result = (await response.json()) as UploadApiResponse;
+          results.push(result);
+        }
+
+        setFiles((prev) =>
+          prev.map((file) => {
+            const matched = results.find((item) => (item.filename ?? "") === file.name);
+            if (!matched) return file;
+
+            return {
+              ...file,
+              status: "Ready",
+              chunksAdded: matched.chunks_added ?? matched.chunksAdded,
+            };
+          })
+        );
+
+        setUploadOpen(false);
+        await loadDocuments();
+      } catch (error) {
+        console.error("Upload failed", error);
+        setFiles((prev) =>
+          prev.filter(
+            (file) => !optimisticFiles.some((optimistic) => optimistic.id === file.id)
+          )
+        );
+      }
+    },
+    [loadDocuments]
+  );
 
   return (
     <div className="min-h-screen bg-[#212121] text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.05),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.02),transparent_22%)]" />
+
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 md:px-6">
         <header className="mb-6 flex items-center justify-between rounded-2xl border border-white/10 bg-[#171717]/80 px-4 py-4 backdrop-blur">
           <div className="flex items-center gap-3">
@@ -127,13 +172,20 @@ export default function UploadPage() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold tracking-tight text-white">Document Manager</p>
-              <p className="text-xs text-zinc-400">Manage uploaded knowledge sources</p>
+              <p className="text-sm font-semibold tracking-tight text-white">
+                Document Manager
+              </p>
+              <p className="text-xs text-zinc-400">
+                Manage uploaded knowledge sources
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm text-zinc-300 transition hover:text-white">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm text-zinc-300 transition hover:text-white"
+            >
               <ArrowLeft className="h-4 w-4" />
               Back to chat
             </Link>
@@ -145,38 +197,58 @@ export default function UploadPage() {
                   Upload Documents
                 </Button>
               </DialogTrigger>
+
               <DialogContent className="max-w-2xl rounded-2xl border-white/10 bg-[#171717] text-white">
                 <DialogHeader>
-                  <DialogTitle className="text-xl text-white">Upload project documents</DialogTitle>
+                  <DialogTitle className="text-xl text-white">
+                    Upload project documents
+                  </DialogTitle>
                   <DialogDescription className="text-zinc-400">
                     Add PDFs, CSVs, or spreadsheets to make them available for retrieval and analysis.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => fileInputRef.current?.click()}
                     onDrop={(e) => {
                       e.preventDefault();
                       void uploadDocuments(e.dataTransfer.files);
                     }}
                     onDragOver={(e) => e.preventDefault()}
-                    className="flex min-h-[180px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-white/12 bg-[#1f1f1f] px-6 py-10 text-center transition-colors hover:border-white/20 hover:bg-[#242424]"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className="flex min-h-[180px] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/12 bg-[#1f1f1f] px-6 py-10 text-center transition-colors hover:border-white/20 hover:bg-[#242424]"
                   >
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-[#2a2a2a] text-zinc-300">
                       <Upload className="h-6 w-6" />
                     </div>
-                    <p className="text-sm font-medium text-white">Drag and drop files here</p>
-                    <p className="mt-1 text-xs text-zinc-400">Supports PDF, CSV, XLS, XLSX · Multiple files allowed</p>
+
+                    <p className="text-sm font-medium text-white">
+                      Drag and drop files here
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Supports PDF, CSV, XLS, XLSX · Multiple files allowed
+                    </p>
+
                     <Button
                       type="button"
                       variant="secondary"
                       className="mt-5 rounded-xl border border-white/10 bg-[#2a2a2a] text-zinc-100 hover:bg-[#2f2f2f]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
                     >
                       Choose Files
                     </Button>
-                  </button>
+                  </div>
 
                   <input
                     ref={fileInputRef}
@@ -198,8 +270,11 @@ export default function UploadPage() {
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
               <h1 className="text-lg font-semibold text-white">Uploaded Documents</h1>
-              <p className="text-sm text-zinc-400">Documents returned from the API are listed here.</p>
+              <p className="text-sm text-zinc-400">
+                Documents returned from the API are listed here.
+              </p>
             </div>
+
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <Input
@@ -220,12 +295,12 @@ export default function UploadPage() {
                 </div>
               ) : filteredFiles.length > 0 ? (
                 filteredFiles.map((file) => (
-                    <UploadedFileRow
-                        key={file.id}
-                        file={file}
-                        onViewChunks={handleViewChunks}
-                    />
-                    ))
+                  <UploadedFileRow
+                    key={file.id}
+                    file={file}
+                    onViewChunks={handleViewChunks}
+                  />
+                ))
               ) : (
                 <div className="rounded-xl border border-dashed border-white/10 bg-[#1f1f1f]/70 px-3 py-6 text-sm text-zinc-400">
                   No uploaded documents returned from the API yet.
@@ -234,15 +309,15 @@ export default function UploadPage() {
             </div>
           </ScrollArea>
         </section>
+
         <DocumentChunksSheet
-        open={chunkViewerOpen}
-        onOpenChange={setChunkViewerOpen}
-        isLoading={chunksLoading}
-        fileName={selectedFile?.name ?? null}
-        data={chunkData}
-      />
+          open={chunkViewerOpen}
+          onOpenChange={setChunkViewerOpen}
+          isLoading={chunksLoading}
+          fileName={selectedFile?.name ?? null}
+          data={chunkData}
+        />
       </div>
     </div>
-    
   );
 }

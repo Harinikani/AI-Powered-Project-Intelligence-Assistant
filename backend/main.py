@@ -38,6 +38,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://appia-frontend-697926445452.us-central1.run.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
