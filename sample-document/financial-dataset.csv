@@ -1,0 +1,21 @@
+Project ID,Project Name,Month,Total Budget (USD),Actual Spend,Forecast Spend,Currency,Cost Variance (%),Notes
+P-001,Highway Expansion Phase 1,2025-01,1200000,1150000,1300000,USD,-4.2,On track
+P-002,Metro Line Upgrade,Jan-2025,2,500,000,2,700,000,,USD,8%,Over budget due to material costs
+P-003,Bridge Rehabilitation,2025/02,850000,NaN,900000,USD,,Missing actuals
+P-004,Solar Farm Development,02-2025,1.2M,1.1M,1.3M,USD,-8.3%,Good performance
+P-005,Water Treatment Plant,March 2025,950000,975000,1000000,USD,2.6%,Slight overrun
+P-006,Highway Expansion Phase 1,2025-03,1200000,1185000,1250000,USD,-1.25%,Duplicate project naming
+P-007,Metro Line Upgrade ,2025-03,2500000,abc,2700000,USD,,Corrupted actual spend
+P-008,Bridge Rehab,2025-03,,870000,920000,USD,,Missing budget
+P-009,Solar Farm Dev,2025-04,1200000,1,050,000,1,250,000,USD,-12.5%,Formatting issues
+P-010,Water Treatment Plant,2025-04,950000,980000,1,020,000,USD,3.1%,
+P-011,Wind Turbine Installation,2025-04,1,800,000,1750000,1900000,USD,-2.8%,OK
+P-012,Wind Turbine Installation,Apr-2025,1800000,1780000,,USD,,Missing forecast
+P-013,Hydropower Dam Upgrade,2025-05,3,500,000,3,800,000,4,000,000,USD,8.6%,High risk overrun
+P-014,Hydropower Dam Upgrade,05/2025,3500000,NaN,3900000,USD,,Missing actuals
+P-015,Metro Line Upgrade,2025-05,2500000,2600000,2700000,MYR,4%,Currency mismatch
+P-016,Bridge Rehabilitation,2025-05,850000,860000,900000,USD,1.2%,OK
+P-017,Highway Expansion Phase I,2025-06,1200000,1190000,1250000,USD,-0.8%,Roman numeral inconsistency
+P-018,Solar Farm Development,2025-06,1200000,invalid,1300000,USD,,Invalid numeric
+P-019,Water Treatment Plant,Jun-2025,950000,970000,1000000,USD,2.1%,OK
+P-020,Wind Turbine Installation,2025-06,1800000,1820000,1900000,USD,1.1%,Slight overrun
