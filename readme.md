@@ -39,8 +39,8 @@ Make sure you have these installed:
 ## 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
+git clone https://github.com/Harinikani/AI-Powered-Project-Intelligence-Assistant
+cd AI-Powered-Project-Intelligence-Assistant
 ```
 
 ## 2. Backend setup
