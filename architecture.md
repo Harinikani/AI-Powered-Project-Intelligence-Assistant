@@ -173,14 +173,12 @@ For a future production version, failure handling could be improved with:
 
 ## 5. Trade-off Summary
 
-This architecture is intentionally simple:
-
 - local Chroma instead of a managed vector database
 - two specialised agents instead of a large agent graph
 - session-based recent history instead of complex memory infrastructure
 - one LLM ecosystem for both embeddings and generation
 
-That simplicity is a strength for this assessment. The system is easier to implement, easier to debug, and easier to defend in a technical interview while still satisfying the core requirements: multi-agent routing, RAG with citations, file ingestion, and follow-up query support.
+
 
 ---
 
