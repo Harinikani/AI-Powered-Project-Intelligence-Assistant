@@ -44,7 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "/tmp/uploads"
+UPLOAD_DIR = "./uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Include all API routers
@@ -90,7 +90,6 @@ async def health_check() -> dict:
     }
 
 
-
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
     try:
@@ -99,7 +98,7 @@ async def upload_document(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Route ingestion based on file type
+        # 🔥 Route ingestion based on file type
         if file.filename.endswith(".pdf"):
             num_chunks = ingest_pdf(file_path)
 
